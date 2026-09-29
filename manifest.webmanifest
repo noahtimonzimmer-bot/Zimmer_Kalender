@@ -1,0 +1,12 @@
+{
+  "name": "Gesprächskalender",
+  "short_name": "Gespräche",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f6fa",
+  "theme_color": "#4a5d8f",
+  "lang": "de",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

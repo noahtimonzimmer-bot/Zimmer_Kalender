@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#4a5d8f">
+  <title>Gesprächskalender</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn" id="prev" aria-label="Vorheriger Monat">‹</button>
+    <h1 id="monthTitle"></h1>
+    <button class="icon-btn" id="next" aria-label="Nächster Monat">›</button>
+  </header>
+
+  <main>
+    <div class="toolbar">
+      <button class="btn" id="todayBtn">Heute</button>
+      <button class="btn primary" id="addBtn">+ Eintrag</button>
+    </div>
+
+    <div class="weekdays">
+      <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+    </div>
+    <div class="grid" id="grid"></div>
+
+    <section class="legend">
+      <span><i class="dot vor"></i>Vorgespräch</span>
+      <span><i class="dot see"></i>Seelsorge</span>
+      <span>🤝 persönlich</span>
+      <span>📞 Telefon</span>
+    </section>
+
+    <section class="panel">
+      <h2 id="listTitle">Einträge</h2>
+      <div id="list"></div>
+    </section>
+
+    <section class="panel">
+      <h2 id="statsTitle">Übersicht</h2>
+      <table class="stats" id="stats"></table>
+    </section>
+
+    <section class="panel backup">
+      <h2>Datensicherung</h2>
+      <p class="hint">Die Einträge werden nur auf diesem Gerät im Browser gespeichert. Mach ab und zu eine Sicherung.</p>
+      <div class="toolbar">
+        <button class="btn" id="exportBtn">Sicherung herunterladen</button>
+        <label class="btn">Sicherung laden<input type="file" id="importFile" accept="application/json" hidden></label>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="dlg">
+    <form method="dialog" id="form">
+      <h2 id="dlgTitle">Neuer Eintrag</h2>
+
+      <label>Datum
+        <input type="date" name="date" required>
+      </label>
+      <label>Uhrzeit <small>(optional)</small>
+        <input type="time" name="time">
+      </label>
+
+      <fieldset>
+        <legend>Art des Gesprächs</legend>
+        <div class="seg">
+          <label><input type="radio" name="kind" value="vor" required><span>Vorgespräch</span></label>
+          <label><input type="radio" name="kind" value="see"><span>Seelsorge­gespräch</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Form</legend>
+        <div class="seg">
+          <label><input type="radio" name="mode" value="treffen" required><span>🤝 Persönlich</span></label>
+          <label><input type="radio" name="mode" value="telefon"><span>📞 Telefon</span></label>
+        </div>
+      </fieldset>
+
+      <label>Person / Kürzel <small>(optional)</small>
+        <input type="text" name="person" autocomplete="off">
+      </label>
+      <label>Notiz <small>(optional)</small>
+        <textarea name="note" rows="3"></textarea>
+      </label>
+
+      <div class="dlg-actions">
+        <button type="button" class="btn danger" id="deleteBtn">Löschen</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="cancelBtn">Abbrechen</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

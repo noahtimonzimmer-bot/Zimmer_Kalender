@@ -9,6 +9,11 @@ const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli',
 
 const $ = (id) => document.getElementById(id);
 
+// Only the SHA-256 hash of the password is stored, not the password itself.
+const PASSWORD_SALT = 'zimmer-kalender:';
+const PASSWORD_HASH = 'df67e62339c6338ee68eb6c2931a4ba47452afc54e2060b0aa1266547a514cca';
+const SESSION_KEY = 'gespraechskalender.session';
+
 let entries = load();
 let view = new Date();
 view.setDate(1);
@@ -243,4 +248,36 @@ $('importFile').addEventListener('change', async (ev) => {
   }
 });
 
-render();
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function unlock() {
+  document.body.classList.remove('locked');
+  render();
+}
+
+$('loginForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const input = $('password');
+  if (await sha256(PASSWORD_SALT + input.value) === PASSWORD_HASH) {
+    try { sessionStorage.setItem(SESSION_KEY, PASSWORD_HASH); } catch {}
+    input.value = '';
+    $('loginError').hidden = true;
+    unlock();
+  } else {
+    $('loginError').hidden = false;
+    input.select();
+  }
+});
+
+$('logoutBtn').addEventListener('click', () => {
+  try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+  document.body.classList.add('locked');
+  $('password').focus();
+});
+
+let loggedIn = false;
+try { loggedIn = sessionStorage.getItem(SESSION_KEY) === PASSWORD_HASH; } catch {}
+if (loggedIn) unlock();

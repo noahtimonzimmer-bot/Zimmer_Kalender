@@ -10,7 +10,19 @@
   <link rel="apple-touch-icon" href="icon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="locked">
+  <div class="login" id="login">
+    <form class="login-box" id="loginForm">
+      <img src="icon.svg" alt="" width="64" height="64">
+      <h1>Gesprächskalender</h1>
+      <label>Passwort
+        <input type="password" id="password" autocomplete="current-password" required autofocus>
+      </label>
+      <p class="login-error" id="loginError" hidden>Falsches Passwort.</p>
+      <button type="submit" class="btn primary">Anmelden</button>
+    </form>
+  </div>
+
   <header class="topbar">
     <button class="icon-btn" id="prev" aria-label="Vorheriger Monat">‹</button>
     <h1 id="monthTitle"></h1>
@@ -49,6 +61,10 @@
           <label class="btn">Sicherung laden<input type="file" id="importFile" accept="application/json" hidden></label>
         </div>
       </section>
+
+      <div class="toolbar logout">
+        <button class="btn" id="logoutBtn">Abmelden</button>
+      </div>
     </aside>
 
     <section class="calendar">

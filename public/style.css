@@ -44,6 +44,9 @@ body {
   z-index: 5;
 }
 .topbar h1 { font-size: 1.2rem; margin: 0; font-weight: 600; }
+.title-wrap { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.sync { font-size: .75rem; opacity: .85; min-height: 1em; white-space: nowrap; }
+.sync[data-kind=offline], .sync[data-kind=error] { opacity: 1; font-weight: 600; color: #ffd68a; }
 
 .icon-btn {
   background: none;
@@ -292,6 +295,7 @@ body.locked > header, body.locked > main { display: none; }
   color: var(--text);
 }
 .login-error { color: var(--danger); margin: 0; font-size: .9rem; }
+.login-box button:disabled { opacity: .7; }
 .logout { margin-top: 16px; }
 
 .settings { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); }

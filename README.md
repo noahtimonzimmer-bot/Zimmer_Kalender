@@ -1,25 +1,38 @@
 # Gesprächskalender
 
-Kleine Web-App, um im Nachhinein einzutragen, wann ein **Vorgespräch** oder ein
-**Seelsorgegespräch** stattgefunden hat – **persönlich (Treffen)** oder per **Telefon**.
+Web-App, um im Nachhinein einzutragen, wann ein **Vorgespräch** oder ein
+**Seelsorgegespräch** stattgefunden hat – **persönlich** oder per **Telefon**
+(Terminarten und Formen sind in den Einstellungen frei anpassbar).
 
-- Monatskalender (Tag antippen → Eintrag anlegen; Tag mit Einträgen antippen → Liste, nochmal antippen → neuer Eintrag)
-- Pro Eintrag: Datum, optionale Uhrzeit, Art, Form, optionales Kürzel und Notiz
-- Übersicht: Anzahl pro Art und Form für den Monat und das Jahr
-- Daten bleiben **nur im Browser auf deinem Gerät** (localStorage) – nichts wird ins Internet hochgeladen
-- Anmeldung mit Passwort (Standard: siehe Übergabe; änderbar in den Einstellungen)
-- Einstellungen: Terminarten und Formen hinzufügen, umbenennen, löschen, Farben wählen, Hauptfarbe der App, Passwort ändern
-- Sicherung als JSON-Datei herunterladen und wieder laden (Einträge und Einstellungen, auch zum Übertragen auf ein anderes Gerät)
+- Monatskalender, Einträge mit Datum, optionaler Uhrzeit, Art, Form, Kürzel und Notiz
+- Übersicht pro Monat und Jahr
+- Anmeldung mit Passwort, Einstellungen für Terminarten, Formen, Farben und Passwort
+- **Automatische Speicherung online, auf allen Geräten gleich**
+- **Ende-zu-Ende-verschlüsselt:** Die Einträge werden im Browser mit dem Passwort
+  verschlüsselt (AES-GCM, Schlüssel per PBKDF2 aus dem Passwort). Der Server
+  speichert nur verschlüsselte Daten und kennt weder Passwort noch Inhalte.
+- Zusätzlich Sicherung als Datei herunterladen / einlesen
 
-## Kostenlos hosten mit GitHub Pages
+## Aufbau
 
-1. Auf GitHub im Repository: **Settings → Pages**
-2. Unter *Build and deployment*: Source **Deploy from a branch**, Branch wählen (z. B. `main`), Ordner `/ (root)` → **Save**
-3. Nach ca. 1 Minute ist die App unter `https://<benutzername>.github.io/<repo-name>/` erreichbar.
-4. Auf dem Handy im Browser öffnen → „Zum Startbildschirm hinzufügen“, dann verhält sie sich wie eine App.
+- `public/` – die App (HTML, CSS, JavaScript)
+- `netlify/functions/api.mjs` – Server-Funktion unter `/api/*`
+- `netlify/lib/handler.mjs` – Anmeldung, Sitzungen, Speichern (Netlify Blobs)
 
-Hinweis: Das Repository enthält nur den Programmcode, keine Einträge.
+## Hosting auf Netlify (kostenlos)
 
-## Lokal ausprobieren
+Die App muss **über GitHub** mit Netlify verbunden sein (nicht per Drag-and-drop),
+damit die Server-Funktion und der Datenspeicher funktionieren:
 
-Einfach `index.html` im Browser öffnen.
+1. Netlify → **Add new site → Import an existing project → GitHub** → dieses Repository wählen
+2. Branch: den Branch mit diesem Code; alles andere steht in `netlify.toml`
+3. **Deploy** – fertig. Netlify Blobs braucht keine weitere Einrichtung.
+
+Beim ersten Anmelden gilt das Start-Passwort. Danach in den Einstellungen ein eigenes
+Passwort setzen. **Wichtig:** Ohne Passwort lassen sich die Daten nicht entschlüsseln.
+
+## Wichtig bei Passwortverlust
+
+Es gibt keine „Passwort vergessen“-Funktion – das ist bei Ende-zu-Ende-Verschlüsselung
+nicht möglich. Eine heruntergeladene Sicherungsdatei ist unverschlüsselt und kann
+jederzeit wieder eingelesen werden; bitte sicher aufbewahren.

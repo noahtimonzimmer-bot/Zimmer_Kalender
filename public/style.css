@@ -342,3 +342,52 @@ body.locked > header, body.locked > main { display: none; }
 .pw-form .btn { align-self: flex-start; }
 .pw-msg { margin: 0; font-size: .9rem; color: var(--danger); }
 .pw-msg.ok { color: #2e8b57; }
+
+/* Dragging entries */
+@media (min-width: 481px) {
+  .chip { cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .chip:hover { filter: brightness(1.08); }
+}
+.chip.dragging { opacity: .35; }
+.chip.ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3);
+  cursor: grabbing;
+  font-size: .8rem;
+  padding: 2px 6px;
+  white-space: normal;
+}
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+.day.drop-target { background: var(--today); outline: 2px dashed var(--accent); outline-offset: -3px; }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px 10px 16px;
+  border-radius: 12px;
+  background: #1f2330;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25);
+  font-size: .9rem;
+}
+.toast[hidden] { display: none; }
+.toast-btn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, .4);
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+  cursor: pointer;
+}

@@ -323,6 +323,7 @@ function render() {
     const dIso = iso(d);
     const cell = el('button', 'day');
     cell.type = 'button';
+    cell.dataset.date = dIso;
     if (d.getMonth() !== month) cell.classList.add('other');
     if (dIso === todayIso) cell.classList.add('today');
     if (dIso === selectedDate) cell.classList.add('selected');
@@ -335,6 +336,7 @@ function render() {
       const chip = el('span', 'chip', label);
       colorize(chip, kind);
       chip.title = `${kind.name} – ${mode.name}`;
+      makeDraggable(chip, e);
       chips.append(chip);
     }
     cell.append(chips);
@@ -380,6 +382,118 @@ function render() {
 
   renderLegend(settings);
   renderStats(monthPrefix, String(year));
+}
+
+// ---- Moving entries by dragging ----
+// Uses pointer events so it works with finger, pen and mouse alike.
+
+const DRAG_THRESHOLD = 6;
+let drag = null;
+
+function canDrag() {
+  // On narrow screens the entries are tiny dots, there a tap on the day opens the list instead.
+  return !window.matchMedia('(max-width: 480px)').matches;
+}
+
+function dayAt(x, y) {
+  const node = document.elementFromPoint(x, y);
+  return node && node.closest('.day[data-date]');
+}
+
+function makeDraggable(chip, entry) {
+  chip.addEventListener('click', (ev) => {
+    if (!canDrag()) return;
+    ev.stopPropagation();
+    if (drag && drag.moved) return;
+    openDialog(entry);
+  });
+
+  chip.addEventListener('pointerdown', (ev) => {
+    if (!canDrag() || ev.button !== 0) return;
+    drag = { entry, chip, startX: ev.clientX, startY: ev.clientY, moved: false, ghost: null, target: null };
+    chip.setPointerCapture(ev.pointerId);
+  });
+
+  chip.addEventListener('pointermove', (ev) => {
+    if (!drag || drag.chip !== chip) return;
+    if (!drag.moved) {
+      if (Math.hypot(ev.clientX - drag.startX, ev.clientY - drag.startY) < DRAG_THRESHOLD) return;
+      drag.moved = true;
+      const rect = chip.getBoundingClientRect();
+      const ghost = chip.cloneNode(true);
+      ghost.classList.add('ghost');
+      ghost.style.width = `${rect.width}px`;
+      drag.offsetX = ev.clientX - rect.left;
+      drag.offsetY = ev.clientY - rect.top;
+      document.body.append(ghost);
+      drag.ghost = ghost;
+      chip.classList.add('dragging');
+      document.body.classList.add('is-dragging');
+    }
+    drag.ghost.style.transform = `translate(${ev.clientX - drag.offsetX}px, ${ev.clientY - drag.offsetY}px)`;
+    const target = dayAt(ev.clientX, ev.clientY);
+    if (target !== drag.target) {
+      if (drag.target) drag.target.classList.remove('drop-target');
+      if (target) target.classList.add('drop-target');
+      drag.target = target;
+    }
+  });
+
+  const finish = (ev) => {
+    if (!drag || drag.chip !== chip) return;
+    const { moved, target, ghost } = drag;
+    if (ghost) ghost.remove();
+    if (target) target.classList.remove('drop-target');
+    chip.classList.remove('dragging');
+    document.body.classList.remove('is-dragging');
+    if (!moved) {
+      drag = null;
+      return;
+    }
+    // Keep the flag briefly so the click that follows the drop does not open the entry.
+    setTimeout(() => { drag = null; }, 0);
+    if (ev.type === 'pointerup' && target && target.dataset.date !== entry.date) {
+      moveEntry(entry, target.dataset.date);
+    }
+  };
+  chip.addEventListener('pointerup', finish);
+  chip.addEventListener('pointercancel', finish);
+}
+
+function moveEntry(entry, newDate) {
+  const { id } = entry;
+  const oldDate = entry.date;
+  selectedDate = newDate;
+  mutate((s) => {
+    const e = s.entries.find((x) => x.id === id);
+    if (e) e.date = newDate;
+  });
+  showToast(`Verschoben auf ${formatDate(newDate)}`, () => {
+    selectedDate = oldDate;
+    mutate((s) => {
+      const e = s.entries.find((x) => x.id === id);
+      if (e) e.date = oldDate;
+    });
+  });
+}
+
+let toastTimer = null;
+
+function showToast(text, undo) {
+  const toast = $('toast');
+  toast.replaceChildren(el('span', null, text));
+  if (undo) {
+    const btn = el('button', 'toast-btn', 'Rückgängig');
+    btn.type = 'button';
+    btn.addEventListener('click', () => {
+      toast.hidden = true;
+      undo();
+    });
+    toast.append(btn);
+  }
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 6000);
 }
 
 function renderLegend(settings) {

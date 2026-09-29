@@ -36,12 +36,7 @@
         <button class="btn primary" id="addBtn">+ Eintrag</button>
       </div>
 
-      <section class="legend">
-        <span><i class="dot vor"></i>Vorgespräch</span>
-        <span><i class="dot see"></i>Seelsorge</span>
-        <span>🤝 persönlich</span>
-        <span>📞 Telefon</span>
-      </section>
+      <section class="legend" id="legend"></section>
 
       <section class="panel">
         <h2 id="listTitle">Einträge</h2>
@@ -53,16 +48,8 @@
         <table class="stats" id="stats"></table>
       </section>
 
-      <section class="panel backup">
-        <h2>Datensicherung</h2>
-        <p class="hint">Die Einträge werden nur auf diesem Gerät im Browser gespeichert. Mach ab und zu eine Sicherung.</p>
-        <div class="toolbar">
-          <button class="btn" id="exportBtn">Sicherung herunterladen</button>
-          <label class="btn">Sicherung laden<input type="file" id="importFile" accept="application/json" hidden></label>
-        </div>
-      </section>
-
       <div class="toolbar logout">
+        <button class="btn" id="settingsBtn">⚙︎ Einstellungen</button>
         <button class="btn" id="logoutBtn">Abmelden</button>
       </div>
     </aside>
@@ -88,18 +75,12 @@
 
       <fieldset>
         <legend>Art des Gesprächs</legend>
-        <div class="seg">
-          <label><input type="radio" name="kind" value="vor" required><span>Vorgespräch</span></label>
-          <label><input type="radio" name="kind" value="see"><span>Seelsorge­gespräch</span></label>
-        </div>
+        <div class="seg" id="kindOptions"></div>
       </fieldset>
 
       <fieldset>
         <legend>Form</legend>
-        <div class="seg">
-          <label><input type="radio" name="mode" value="treffen" required><span>🤝 Persönlich</span></label>
-          <label><input type="radio" name="mode" value="telefon"><span>📞 Telefon</span></label>
-        </div>
+        <div class="seg" id="modeOptions"></div>
       </fieldset>
 
       <label>Person / Kürzel <small>(optional)</small>
@@ -116,6 +97,58 @@
         <button type="submit" class="btn primary">Speichern</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="settingsDlg" class="settings">
+    <div class="settings-body">
+      <div class="settings-head">
+        <h2>Einstellungen</h2>
+        <button type="button" class="btn" id="settingsClose">Fertig</button>
+      </div>
+
+      <section class="panel">
+        <h3>Terminarten</h3>
+        <p class="hint">Name und Farbe ändern sich sofort. Arten, die schon in Einträgen vorkommen, können nicht gelöscht werden.</p>
+        <div id="kindList" class="edit-list"></div>
+        <button type="button" class="btn" id="addKind">+ Neue Terminart</button>
+      </section>
+
+      <section class="panel">
+        <h3>Formen</h3>
+        <p class="hint">Zum Beispiel persönlich, Telefon, Video. Das Symbol kannst du frei wählen (z.&nbsp;B. ein Emoji).</p>
+        <div id="modeList" class="edit-list"></div>
+        <button type="button" class="btn" id="addMode">+ Neue Form</button>
+      </section>
+
+      <section class="panel">
+        <h3>Aussehen</h3>
+        <div class="edit-row">
+          <input type="color" id="accentColor" aria-label="Hauptfarbe">
+          <span class="grow">Hauptfarbe der App</span>
+          <button type="button" class="btn" id="accentReset">Standard</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Passwort ändern</h3>
+        <form id="pwForm" class="pw-form">
+          <input type="password" id="pwOld" placeholder="Aktuelles Passwort" autocomplete="current-password" required>
+          <input type="password" id="pwNew" placeholder="Neues Passwort" autocomplete="new-password" minlength="4" required>
+          <input type="password" id="pwNew2" placeholder="Neues Passwort wiederholen" autocomplete="new-password" required>
+          <p class="pw-msg" id="pwMsg" hidden></p>
+          <button type="submit" class="btn primary">Passwort speichern</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h3>Datensicherung</h3>
+        <p class="hint">Die Einträge und Einstellungen werden nur auf diesem Gerät im Browser gespeichert. Mach ab und zu eine Sicherung. Damit kannst du sie auch auf ein anderes Gerät übertragen.</p>
+        <div class="toolbar">
+          <button type="button" class="btn" id="exportBtn">Sicherung herunterladen</button>
+          <label class="btn">Sicherung laden<input type="file" id="importFile" accept="application/json,.json" hidden></label>
+        </div>
+      </section>
+    </div>
   </dialog>
 
   <script src="app.js"></script>

@@ -7,7 +7,9 @@ Kleine Web-App, um im Nachhinein einzutragen, wann ein **Vorgespräch** oder ein
 - Pro Eintrag: Datum, optionale Uhrzeit, Art, Form, optionales Kürzel und Notiz
 - Übersicht: Anzahl pro Art und Form für den Monat und das Jahr
 - Daten bleiben **nur im Browser auf deinem Gerät** (localStorage) – nichts wird ins Internet hochgeladen
-- Sicherung als JSON-Datei herunterladen und wieder laden (auch zum Übertragen auf ein anderes Gerät)
+- Anmeldung mit Passwort (Standard: siehe Übergabe; änderbar in den Einstellungen)
+- Einstellungen: Terminarten und Formen hinzufügen, umbenennen, löschen, Farben wählen, Hauptfarbe der App, Passwort ändern
+- Sicherung als JSON-Datei herunterladen und wieder laden (Einträge und Einstellungen, auch zum Übertragen auf ein anderes Gerät)
 
 ## Kostenlos hosten mit GitHub Pages
 

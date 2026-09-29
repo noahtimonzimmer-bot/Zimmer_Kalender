@@ -33,8 +33,15 @@ let saving = false;
 let saveTimer = null;
 let migrateLegacy = false;
 
-let view = new Date();
-view.setDate(1);
+const VIEW_KEY = 'gespraechskalender.view';
+const HOUR_PX = 48;
+const SNAP_MIN = 15;
+const DEFAULT_DURATION = 60;
+
+let viewMode = loadViewMode();
+let anchor = new Date();
+anchor.setHours(0, 0, 0, 0);
+let scrollToTime = true;
 let selectedDate = null;
 let editingId = null;
 
@@ -274,7 +281,7 @@ async function flush() {
 }
 
 async function refresh() {
-  if (!session || saving || pendingOps.length) return;
+  if (!session || saving || pendingOps.length || drag || gridDrag) return;
   try {
     const vault = await api('GET', 'data');
     if (vault.version === version) return;
@@ -299,18 +306,137 @@ window.addEventListener('beforeunload', (ev) => {
 
 // ---- Rendering ----
 
+function loadViewMode() {
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    if (['month', 'week', 'day'].includes(v)) return v;
+  } catch {}
+  return window.matchMedia('(max-width: 480px)').matches ? 'day' : 'month';
+}
+
+function addDays(d, n) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+}
+
+function parseIso(text) {
+  const [y, m, d] = text.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function toMin(time) {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function fromMin(min) {
+  return `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+}
+
+function durationOf(e) {
+  return e.duration > 0 ? e.duration : DEFAULT_DURATION;
+}
+
+function endMin(e) {
+  return Math.min(toMin(e.time) + durationOf(e), 24 * 60);
+}
+
+function timeRange(e) {
+  return e.time ? `${e.time}–${fromMin(endMin(e))}` : '';
+}
+
+function weekStart(d) {
+  return addDays(d, -((d.getDay() + 6) % 7));
+}
+
+function visibleDays() {
+  if (viewMode === 'day') return [anchor];
+  const start = weekStart(anchor);
+  return Array.from({ length: 7 }, (_, i) => addDays(start, i));
+}
+
+function viewTitle() {
+  if (viewMode === 'month') return `${MONTHS[anchor.getMonth()]} ${anchor.getFullYear()}`;
+  if (viewMode === 'day') {
+    return anchor.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  const days = visibleDays();
+  const short = (d) => d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short' });
+  return `${short(days[0])} – ${short(days[6])} ${days[6].getFullYear()}`;
+}
+
 function render() {
   const { entries, settings } = state;
-  const year = view.getFullYear();
-  const month = view.getMonth();
+  const year = anchor.getFullYear();
+  const month = anchor.getMonth();
   const monthPrefix = `${year}-${String(month + 1).padStart(2, '0')}`;
-  $('monthTitle').textContent = `${MONTHS[month]} ${year}`;
+  $('monthTitle').textContent = viewTitle();
+  for (const b of $('viewSwitch').querySelectorAll('button')) {
+    b.classList.toggle('active', b.dataset.view === viewMode);
+    b.setAttribute('aria-selected', b.dataset.view === viewMode);
+  }
+  $('monthView').hidden = viewMode !== 'month';
+  $('timeView').hidden = viewMode === 'month';
 
   const byDate = {};
   for (const e of entries) (byDate[e.date] ||= []).push(e);
   for (const list of Object.values(byDate)) list.sort(byDateTime);
 
-  // Calendar grid, weeks starting Monday
+  let inView;
+  let rangeTitle;
+  if (viewMode === 'month') {
+    renderMonth(byDate, year, month);
+    inView = (d) => d.startsWith(monthPrefix);
+    rangeTitle = `Einträge im ${MONTHS[month]}`;
+  } else {
+    const days = visibleDays().map(iso);
+    renderTimeGrid(days, byDate);
+    inView = (d) => days.includes(d);
+    rangeTitle = viewMode === 'day' ? `Einträge am ${formatDate(days[0])}` : 'Einträge in dieser Woche';
+  }
+
+  // Entry list: selected day, otherwise everything visible
+  const daySelected = selectedDate && inView(selectedDate) && viewMode !== 'day';
+  const listEntries = daySelected
+    ? (byDate[selectedDate] || [])
+    : entries.filter((e) => inView(e.date)).sort(byDateTime);
+  $('listTitle').textContent = daySelected ? `Einträge am ${formatDate(selectedDate)}` : rangeTitle;
+
+  const list = $('list');
+  list.replaceChildren();
+  if (!listEntries.length) {
+    list.append(el('p', 'empty', 'Keine Einträge. Tippe in den Kalender, um einen Eintrag hinzuzufügen.'));
+  }
+  for (const e of listEntries) {
+    const row = el('div', 'entry');
+    const kind = kindOf(e.kind);
+    const mode = modeOf(e.mode);
+    const bar = el('span', 'bar');
+    bar.style.background = kind.color;
+    row.append(bar);
+    const main = el('div', 'main');
+    main.append(el('div', 'title', `${prefix(mode.icon)}${kind.name}${e.person ? ' – ' + e.person : ''}`));
+    main.append(el('div', 'meta', `${formatDate(e.date)}${e.time ? ', ' + timeRange(e) + ' Uhr' : ''} · ${mode.name}`));
+    if (e.note) main.append(el('div', 'note', e.note));
+    row.append(main);
+    row.addEventListener('click', () => openDialog(e));
+    list.append(row);
+  }
+
+  renderLegend(settings);
+  renderStats(monthPrefix, String(year));
+}
+
+function entryChip(e) {
+  const kind = kindOf(e.kind);
+  const mode = modeOf(e.mode);
+  const label = `${prefix(mode.icon)}${e.time ? e.time + ' ' : ''}${kind.name}${e.person ? ' · ' + e.person : ''}`;
+  const chip = el('span', 'chip', label);
+  colorize(chip, kind);
+  chip.title = `${kind.name} – ${mode.name}`;
+  return chip;
+}
+
+function renderMonth(byDate, year, month) {
   const grid = $('grid');
   grid.replaceChildren();
   const offset = (new Date(year, month, 1).getDay() + 6) % 7;
@@ -330,12 +456,7 @@ function render() {
     cell.append(el('span', 'num', d.getDate()));
     const chips = el('div', 'chips');
     for (const e of byDate[dIso] || []) {
-      const kind = kindOf(e.kind);
-      const mode = modeOf(e.mode);
-      const label = `${prefix(mode.icon)}${e.time ? e.time + ' ' : ''}${kind.name}${e.person ? ' · ' + e.person : ''}`;
-      const chip = el('span', 'chip', label);
-      colorize(chip, kind);
-      chip.title = `${kind.name} – ${mode.name}`;
+      const chip = entryChip(e);
       makeDraggable(chip, e);
       chips.append(chip);
     }
@@ -345,43 +466,332 @@ function render() {
         openDialog(null, dIso);
       }
       selectedDate = dIso;
-      if (d.getMonth() !== month) view = new Date(d.getFullYear(), d.getMonth(), 1);
+      if (d.getMonth() !== month) anchor = d;
       render();
     });
     grid.append(cell);
   }
+}
 
-  // Entry list: selected day, otherwise whole month
-  const listEntries = selectedDate && selectedDate.startsWith(monthPrefix)
-    ? (byDate[selectedDate] || [])
-    : entries.filter((e) => e.date.startsWith(monthPrefix)).sort(byDateTime);
-  $('listTitle').textContent = selectedDate && selectedDate.startsWith(monthPrefix)
-    ? `Einträge am ${formatDate(selectedDate)}`
-    : `Einträge im ${MONTHS[month]}`;
-
-  const list = $('list');
-  list.replaceChildren();
-  if (!listEntries.length) {
-    list.append(el('p', 'empty', 'Keine Einträge. Tippe auf einen Tag, um einen Eintrag hinzuzufügen.'));
+// Places overlapping entries of one day side by side.
+function layoutDay(list) {
+  const items = list
+    .map((e) => ({ e, start: toMin(e.time), end: Math.max(endMin(e), toMin(e.time) + SNAP_MIN) }))
+    .sort((a, b) => a.start - b.start || b.end - a.end);
+  const out = [];
+  let cluster = [];
+  let clusterEnd = -1;
+  const flushCluster = () => {
+    const lanes = [];
+    for (const it of cluster) {
+      let lane = lanes.findIndex((end) => end <= it.start);
+      if (lane < 0) lane = lanes.push(0) - 1;
+      lanes[lane] = it.end;
+      it.lane = lane;
+    }
+    for (const it of cluster) it.lanes = lanes.length;
+    out.push(...cluster);
+    cluster = [];
+  };
+  for (const it of items) {
+    if (cluster.length && it.start >= clusterEnd) flushCluster();
+    cluster.push(it);
+    clusterEnd = cluster.length === 1 ? it.end : Math.max(clusterEnd, it.end);
   }
-  for (const e of listEntries) {
-    const row = el('div', 'entry');
-    const kind = kindOf(e.kind);
-    const mode = modeOf(e.mode);
-    const bar = el('span', 'bar');
-    bar.style.background = kind.color;
-    row.append(bar);
-    const main = el('div', 'main');
-    main.append(el('div', 'title', `${prefix(mode.icon)}${kind.name}${e.person ? ' – ' + e.person : ''}`));
-    main.append(el('div', 'meta', `${formatDate(e.date)}${e.time ? ', ' + e.time + ' Uhr' : ''} · ${mode.name}`));
-    if (e.note) main.append(el('div', 'note', e.note));
-    row.append(main);
-    row.addEventListener('click', () => openDialog(e));
-    list.append(row);
+  if (cluster.length) flushCluster();
+  return out;
+}
+
+function renderTimeGrid(days, byDate) {
+  const container = $('timeView');
+  const oldScroll = container.querySelector('.tg-scroll');
+  const oldTop = oldScroll ? oldScroll.scrollTop : null;
+  container.replaceChildren();
+  container.style.setProperty('--cols', days.length);
+  container.style.setProperty('--hour', `${HOUR_PX}px`);
+  const todayIso = iso(new Date());
+
+  const head = el('div', 'tg-head');
+  head.append(el('div', 'tg-gutter'));
+  for (const dIso of days) {
+    const d = parseIso(dIso);
+    const h = el('button', 'tg-dayhead');
+    h.type = 'button';
+    if (dIso === todayIso) h.classList.add('today');
+    h.append(
+      el('span', 'tg-wd', d.toLocaleDateString('de-DE', { weekday: 'short' })),
+      el('span', 'tg-dn', d.getDate()),
+    );
+    h.title = 'Tagesansicht';
+    h.addEventListener('click', () => {
+      anchor = d;
+      selectedDate = dIso;
+      setViewMode('day');
+    });
+    head.append(h);
   }
 
-  renderLegend(settings);
-  renderStats(monthPrefix, String(year));
+  const allday = el('div', 'tg-allday');
+  allday.append(el('div', 'tg-gutter tg-allday-label', 'ohne Zeit'));
+  for (const dIso of days) {
+    const cell = el('div', 'tg-allcell');
+    cell.dataset.date = dIso;
+    for (const e of (byDate[dIso] || []).filter((x) => !x.time)) {
+      const chip = entryChip(e);
+      attachGridDrag(chip, e);
+      cell.append(chip);
+    }
+    cell.addEventListener('click', (ev) => {
+      if (ev.target === cell) openDialog(null, dIso);
+    });
+    allday.append(cell);
+  }
+
+  const scroll = el('div', 'tg-scroll');
+  const body = el('div', 'tg-body');
+  const hours = el('div', 'tg-hours');
+  for (let h = 1; h < 24; h++) {
+    const label = el('span', null, `${String(h).padStart(2, '0')}:00`);
+    label.style.top = `${h * HOUR_PX}px`;
+    hours.append(label);
+  }
+  body.append(hours);
+
+  for (const dIso of days) {
+    const col = el('div', 'tg-col');
+    col.dataset.date = dIso;
+    if (dIso === todayIso) {
+      col.classList.add('today');
+      const now = new Date();
+      const line = el('div', 'tg-now');
+      line.style.top = `${(now.getHours() * 60 + now.getMinutes()) / 60 * HOUR_PX}px`;
+      col.append(line);
+    }
+    for (const it of layoutDay((byDate[dIso] || []).filter((x) => x.time))) {
+      col.append(eventBlock(it));
+    }
+    col.addEventListener('click', (ev) => {
+      if (ev.target !== col) return;
+      const y = ev.clientY - col.getBoundingClientRect().top;
+      const min = Math.max(0, Math.min(24 * 60 - 30, Math.floor(y / HOUR_PX * 2) * 30));
+      selectedDate = dIso;
+      openDialog(null, dIso, fromMin(min));
+    });
+    body.append(col);
+  }
+  scroll.append(body);
+  container.append(head, allday, scroll);
+
+  // Keep the header columns aligned with the scrolling grid below.
+  const scrollbar = `${scroll.offsetWidth - scroll.clientWidth}px`;
+  head.style.paddingRight = scrollbar;
+  allday.style.paddingRight = scrollbar;
+
+  if (scrollToTime || oldTop == null) {
+    const times = days.flatMap((d) => (byDate[d] || []).filter((x) => x.time).map((x) => toMin(x.time)));
+    const first = times.length ? Math.min(...times) : 8 * 60;
+    scroll.scrollTop = Math.max(0, Math.min(first, 7 * 60) / 60 * HOUR_PX - 8);
+    scrollToTime = false;
+  } else {
+    scroll.scrollTop = oldTop;
+  }
+}
+
+function eventBlock({ e, start, end, lane, lanes }) {
+  const kind = kindOf(e.kind);
+  const mode = modeOf(e.mode);
+  const block = el('div', 'tg-event');
+  block.style.top = `${start / 60 * HOUR_PX}px`;
+  block.style.height = `${Math.max(end - start, SNAP_MIN) / 60 * HOUR_PX}px`;
+  block.style.left = `calc(${lane / lanes * 100}% + 2px)`;
+  block.style.width = `calc(${100 / lanes}% - 4px)`;
+  colorize(block, kind);
+  block.title = `${timeRange(e)} ${kind.name} – ${mode.name}`;
+  block.append(
+    el('div', 'tg-ev-time', timeRange(e)),
+    el('div', 'tg-ev-title', `${prefix(mode.icon)}${kind.name}${e.person ? ' · ' + e.person : ''}`),
+  );
+  if (end - start <= 30) block.classList.add('short');
+  const handle = el('div', 'tg-resize');
+  handle.setAttribute('aria-hidden', 'true');
+  block.append(handle);
+  attachGridDrag(block, e, handle);
+  return block;
+}
+
+function setViewMode(mode) {
+  viewMode = mode;
+  try { localStorage.setItem(VIEW_KEY, mode); } catch {}
+  scrollToTime = true;
+  render();
+}
+
+for (const b of $('viewSwitch').querySelectorAll('button')) {
+  b.addEventListener('click', () => {
+    if (selectedDate && b.dataset.view !== viewMode) anchor = parseIso(selectedDate);
+    setViewMode(b.dataset.view);
+  });
+}
+
+// ---- Moving and resizing in the hour grid ----
+
+let gridDrag = null;
+
+function snapMin(min) {
+  return Math.round(min / SNAP_MIN) * SNAP_MIN;
+}
+
+function gridTargetAt(x, y) {
+  const node = document.elementFromPoint(x, y);
+  return node && node.closest('.tg-col[data-date], .tg-allcell[data-date]');
+}
+
+// Scrolls the grid when dragging near its top or bottom edge. Only starts once the
+// pointer has been well inside the grid, so crossing the edge on the way in does not scroll.
+function autoScroll(g, y) {
+  const scroll = document.querySelector('.tg-scroll');
+  if (!scroll) return;
+  const r = scroll.getBoundingClientRect();
+  const edge = 30;
+  if (y > r.top + edge && y < r.bottom - edge) {
+    g.inGrid = true;
+    return;
+  }
+  if (!g.inGrid) return;
+  if (y < r.top + edge && y >= r.top - edge) scroll.scrollTop -= 12;
+  else if (y > r.bottom - edge) scroll.scrollTop += 12;
+}
+
+function attachGridDrag(node, entry, handle) {
+  node.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (gridDrag && gridDrag.moved) return;
+    openDialog(entry);
+  });
+
+  node.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const rect = node.getBoundingClientRect();
+    gridDrag = {
+      entry,
+      node,
+      resize: handle ? handle.contains(ev.target) : false,
+      startX: ev.clientX,
+      startY: ev.clientY,
+      grabY: entry.time ? ev.clientY - rect.top : 8,
+      moved: false,
+      inGrid: false,
+      preview: null,
+      target: null,
+      date: entry.date,
+      time: entry.time || '',
+      duration: durationOf(entry),
+    };
+    node.setPointerCapture(ev.pointerId);
+  });
+
+  node.addEventListener('pointermove', (ev) => {
+    const g = gridDrag;
+    if (!g || g.node !== node) return;
+    if (!g.moved) {
+      if (Math.hypot(ev.clientX - g.startX, ev.clientY - g.startY) < DRAG_THRESHOLD) return;
+      g.moved = true;
+      node.classList.add('dragging');
+      document.body.classList.add(g.resize ? 'is-resizing' : 'is-dragging');
+      if (!g.resize) {
+        g.preview = el('div', 'tg-event preview');
+        colorize(g.preview, kindOf(entry.kind));
+        g.preview.append(el('div', 'tg-ev-time'), el('div', 'tg-ev-title', kindOf(entry.kind).name));
+      }
+    }
+    autoScroll(g, ev.clientY);
+
+    if (g.resize) {
+      const col = node.parentElement;
+      const start = toMin(entry.time);
+      const end = snapMin((ev.clientY - col.getBoundingClientRect().top) / HOUR_PX * 60);
+      g.duration = Math.max(SNAP_MIN, Math.min(24 * 60, end) - start);
+      node.style.height = `${g.duration / 60 * HOUR_PX}px`;
+      node.querySelector('.tg-ev-time').textContent = `${entry.time}–${fromMin(Math.min(start + g.duration, 24 * 60))}`;
+      return;
+    }
+
+    const target = gridTargetAt(ev.clientX, ev.clientY);
+    if (g.target && g.target !== target) g.target.classList.remove('drop-target');
+    g.target = target;
+    if (!target) {
+      g.preview.remove();
+      return;
+    }
+    g.date = target.dataset.date;
+    if (target.classList.contains('tg-allcell')) {
+      target.classList.add('drop-target');
+      g.preview.remove();
+      g.time = '';
+      return;
+    }
+    const top = ev.clientY - target.getBoundingClientRect().top - g.grabY;
+    const start = Math.max(0, Math.min(24 * 60 - SNAP_MIN, snapMin(top / HOUR_PX * 60)));
+    g.time = fromMin(start);
+    const end = Math.min(start + g.duration, 24 * 60);
+    g.preview.style.top = `${start / 60 * HOUR_PX}px`;
+    g.preview.style.height = `${Math.max(end - start, SNAP_MIN) / 60 * HOUR_PX}px`;
+    g.preview.firstChild.textContent = `${g.time}–${fromMin(end)}`;
+    if (g.preview.parentElement !== target) target.append(g.preview);
+  });
+
+  const finish = (ev) => {
+    const g = gridDrag;
+    if (!g || g.node !== node) return;
+    if (g.preview) g.preview.remove();
+    if (g.target) g.target.classList.remove('drop-target');
+    node.classList.remove('dragging');
+    document.body.classList.remove('is-dragging', 'is-resizing');
+    if (!g.moved) {
+      gridDrag = null;
+      return;
+    }
+    // Keep the flag briefly so the click that follows the drop does not open the entry.
+    setTimeout(() => { gridDrag = null; }, 0);
+    if (ev.type !== 'pointerup') {
+      render();
+      return;
+    }
+    if (g.resize) {
+      if (g.duration !== durationOf(entry)) {
+        changeEntry(entry, { duration: g.duration }, `Neue Zeit: ${timeRange({ ...entry, duration: g.duration })} Uhr`);
+      } else {
+        render();
+      }
+      return;
+    }
+    if (g.target && (g.date !== entry.date || g.time !== (entry.time || ''))) {
+      const changes = { date: g.date, time: g.time };
+      const when = g.time ? `${formatDate(g.date)}, ${g.time} Uhr` : `${formatDate(g.date)} (ohne Zeit)`;
+      changeEntry(entry, changes, `Verschoben auf ${when}`);
+    }
+  };
+  node.addEventListener('pointerup', finish);
+  node.addEventListener('pointercancel', finish);
+}
+
+// Changes some fields of an entry and offers to undo it.
+function changeEntry(entry, changes, message) {
+  const { id } = entry;
+  const before = {};
+  for (const key of Object.keys(changes)) before[key] = entry[key];
+  if (changes.date) selectedDate = changes.date;
+  mutate((s) => {
+    const e = s.entries.find((x) => x.id === id);
+    if (e) Object.assign(e, changes);
+  });
+  showToast(message, () => {
+    if (before.date) selectedDate = before.date;
+    mutate((s) => {
+      const e = s.entries.find((x) => x.id === id);
+      if (e) Object.assign(e, before);
+    });
+  });
 }
 
 // ---- Moving entries by dragging ----
@@ -453,28 +863,11 @@ function makeDraggable(chip, entry) {
     // Keep the flag briefly so the click that follows the drop does not open the entry.
     setTimeout(() => { drag = null; }, 0);
     if (ev.type === 'pointerup' && target && target.dataset.date !== entry.date) {
-      moveEntry(entry, target.dataset.date);
+      changeEntry(entry, { date: target.dataset.date }, `Verschoben auf ${formatDate(target.dataset.date)}`);
     }
   };
   chip.addEventListener('pointerup', finish);
   chip.addEventListener('pointercancel', finish);
-}
-
-function moveEntry(entry, newDate) {
-  const { id } = entry;
-  const oldDate = entry.date;
-  selectedDate = newDate;
-  mutate((s) => {
-    const e = s.entries.find((x) => x.id === id);
-    if (e) e.date = newDate;
-  });
-  showToast(`Verschoben auf ${formatDate(newDate)}`, () => {
-    selectedDate = oldDate;
-    mutate((s) => {
-      const e = s.entries.find((x) => x.id === id);
-      if (e) e.date = oldDate;
-    });
-  });
 }
 
 let toastTimer = null;
@@ -514,7 +907,7 @@ function renderStats(monthPrefix, yearPrefix) {
   const count = (prefix, kind, mode) => entries.filter((e) =>
     e.date.startsWith(prefix) && (!kind || e.kind === kind) && (!mode || e.mode === mode)).length;
 
-  $('statsTitle').textContent = `Übersicht ${MONTHS[view.getMonth()]} / Jahr ${yearPrefix}`;
+  $('statsTitle').textContent = `Übersicht ${MONTHS[anchor.getMonth()]} / Jahr ${yearPrefix}`;
   const table = $('stats');
   table.replaceChildren();
   const head = el('thead');
@@ -556,7 +949,7 @@ function renderOptions(container, name, items, labelOf) {
   });
 }
 
-function openDialog(entry, date) {
+function openDialog(entry, date, time) {
   const form = $('form');
   renderOptions($('kindOptions'), 'kind', state.settings.kinds, (k) => k.name);
   renderOptions($('modeOptions'), 'mode', state.settings.modes, (m) => `${prefix(m.icon)}${m.name}`);
@@ -564,9 +957,10 @@ function openDialog(entry, date) {
   editingId = entry ? entry.id : null;
   $('dlgTitle').textContent = entry ? 'Eintrag bearbeiten' : 'Neuer Eintrag';
   $('deleteBtn').hidden = !entry;
-  const e = entry || { date: date || selectedDate || iso(new Date()) };
+  const e = entry || { date: date || selectedDate || iso(new Date()), time: time || '' };
   form.date.value = e.date;
   form.time.value = e.time || '';
+  form.duration.value = durationOf(e);
   form.person.value = e.person || '';
   form.note.value = e.note || '';
   for (const input of form.querySelectorAll('input[name=kind], input[name=mode]')) {
@@ -581,14 +975,14 @@ $('form').addEventListener('submit', () => {
     id: editingId || newId(),
     date: f.date.value,
     time: f.time.value,
+    duration: Math.max(5, Math.min(24 * 60, Math.round(Number(f.duration.value)) || DEFAULT_DURATION)),
     kind: f.kind.value,
     mode: f.mode.value,
     person: f.person.value.trim(),
     note: f.note.value.trim(),
   };
   selectedDate = data.date;
-  const [y, m] = data.date.split('-').map(Number);
-  view = new Date(y, m - 1, 1);
+  anchor = parseIso(data.date);
   mutate((s) => {
     s.entries = s.entries.filter((e) => e.id !== data.id);
     s.entries.push(data);
@@ -604,20 +998,24 @@ $('deleteBtn').addEventListener('click', () => {
 
 $('cancelBtn').addEventListener('click', () => $('dlg').close());
 
-$('prev').addEventListener('click', () => {
-  view = new Date(view.getFullYear(), view.getMonth() - 1, 1);
-  selectedDate = null;
+function step(dir) {
+  if (viewMode === 'month') {
+    anchor = new Date(anchor.getFullYear(), anchor.getMonth() + dir, 1);
+    selectedDate = null;
+  } else {
+    anchor = addDays(anchor, dir * (viewMode === 'week' ? 7 : 1));
+    if (viewMode === 'day') selectedDate = iso(anchor);
+  }
   render();
-});
-$('next').addEventListener('click', () => {
-  view = new Date(view.getFullYear(), view.getMonth() + 1, 1);
-  selectedDate = null;
-  render();
-});
+}
+
+$('prev').addEventListener('click', () => step(-1));
+$('next').addEventListener('click', () => step(1));
 $('todayBtn').addEventListener('click', () => {
-  const t = new Date();
-  view = new Date(t.getFullYear(), t.getMonth(), 1);
-  selectedDate = iso(t);
+  anchor = new Date();
+  anchor.setHours(0, 0, 0, 0);
+  selectedDate = iso(anchor);
+  scrollToTime = true;
   render();
 });
 $('addBtn').addEventListener('click', () => openDialog(null));

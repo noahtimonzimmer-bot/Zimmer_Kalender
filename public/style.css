@@ -7,6 +7,8 @@
   --accent: #4a5d8f;
   --danger: #c0392b;
   --today: #eef1fb;
+  --line-soft: #eceef4;
+  --line-faint: #f4f5f8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -18,6 +20,8 @@
     --line: #2f3342;
     --accent: #8ea2da;
     --today: #262c40;
+    --line-soft: #292d3a;
+    --line-faint: #23262f;
   }
 }
 
@@ -84,6 +88,9 @@ body {
     display: flex;
     flex-direction: column;
   }
+  .month-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .time-view { flex: 1; min-height: 0; }
+  .time-view .tg-scroll { flex: 1; min-height: 0; height: auto; }
   .calendar .weekdays { gap: 0; border-bottom: 1px solid var(--line); background: var(--card); }
   .calendar .weekdays span { padding: 8px 0; font-weight: 600; color: var(--text); }
   .calendar .grid {
@@ -256,7 +263,7 @@ legend { font-size: .9rem; margin-bottom: 4px; }
   .day { min-height: 52px; padding: 3px; }
   .weekdays span { font-size: 0; }
   .weekdays span::after { content: attr(data-s); font-size: .8rem; }
-  .chip { font-size: 0; padding: 0; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .day .chip { font-size: 0; padding: 0; width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   .chips { flex-direction: row; flex-wrap: wrap; }
 }
 
@@ -390,4 +397,166 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
   padding: 6px 10px;
   font: inherit;
   cursor: pointer;
+}
+
+/* View switch */
+.cal-bar {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.cal-bar button {
+  font: inherit;
+  font-size: .9rem;
+  min-height: 34px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.cal-bar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (max-width: 899px) {
+  .cal-bar { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; }
+}
+.month-view[hidden], .time-view[hidden] { display: none !important; }
+
+/* Hour grid (week and day view) */
+.time-view {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  --gutter: 52px;
+}
+@media (max-width: 899px) {
+  .time-view { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .tg-scroll { height: 65vh; }
+}
+.tg-head, .tg-allday, .tg-body {
+  display: grid;
+  grid-template-columns: var(--gutter) repeat(var(--cols), minmax(0, 1fr));
+}
+.tg-head { border-bottom: 1px solid var(--line); }
+.tg-dayhead {
+  font: inherit;
+  background: none;
+  border: 0;
+  border-left: 1px solid var(--line);
+  color: var(--text);
+  padding: 6px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+.tg-wd { font-size: .75rem; color: var(--muted); }
+.tg-dn { font-size: 1.1rem; font-weight: 600; width: 32px; height: 32px; line-height: 32px; border-radius: 50%; text-align: center; }
+.tg-dayhead.today .tg-dn { background: var(--accent); color: #fff; }
+.tg-allday { border-bottom: 1px solid var(--line); }
+.tg-allday-label { font-size: .7rem; color: var(--muted); text-align: right; padding: 6px 6px 0 0; }
+.tg-allcell {
+  border-left: 1px solid var(--line);
+  min-height: 30px;
+  padding: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  min-width: 0;
+}
+.tg-allcell .chip { font-size: .75rem; padding: 2px 5px; display: block; }
+.tg-allcell.drop-target { background: var(--today); outline: 2px dashed var(--accent); outline-offset: -3px; }
+.tg-scroll { overflow-y: auto; overflow-x: hidden; position: relative; -webkit-overflow-scrolling: touch; }
+.tg-body { height: calc(var(--hour) * 24); position: relative; }
+.tg-hours { position: relative; }
+.tg-hours span {
+  position: absolute;
+  right: 6px;
+  transform: translateY(-50%);
+  font-size: .7rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.tg-col {
+  position: relative;
+  border-left: 1px solid var(--line);
+  cursor: pointer;
+  /* hour lines, half-hour lines and very fine quarter-hour lines */
+  background-image:
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line-soft) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line-faint) 1px, transparent 1px);
+  background-size: 100% var(--hour), 100% calc(var(--hour) / 2), 100% calc(var(--hour) / 4);
+}
+.tg-col.today { background-color: color-mix(in srgb, var(--today) 55%, transparent); }
+.tg-now { position: absolute; left: 0; right: 0; height: 2px; background: #e5484d; z-index: 3; pointer-events: none; }
+.tg-now::before { content: ""; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #e5484d; }
+
+.tg-event {
+  position: absolute;
+  z-index: 2;
+  border-radius: 6px;
+  padding: 3px 6px 8px;
+  font-size: .78rem;
+  line-height: 1.25;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  box-shadow: 0 0 0 1px var(--card);
+}
+.tg-event:hover { filter: brightness(1.06); }
+.tg-ev-time { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tg-ev-title { overflow-wrap: break-word; hyphens: auto; }
+.tg-event.short { padding-top: 1px; padding-bottom: 1px; }
+.tg-event.short .tg-ev-time, .tg-event.short .tg-ev-title { display: inline; margin-right: 4px; }
+.tg-event.dragging { opacity: .35; pointer-events: none; }
+.tg-event.preview {
+  left: 2px;
+  right: 2px;
+  z-index: 4;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .3);
+  opacity: .95;
+}
+.tg-resize {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 10px;
+  cursor: ns-resize;
+}
+.tg-resize::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 22px;
+  height: 3px;
+  margin-left: -11px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: .45;
+}
+@media (pointer: coarse) {
+  .tg-resize { height: 16px; }
+}
+body.is-resizing, body.is-resizing * { cursor: ns-resize !important; }
+
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#form input[type=number] {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  width: 100%;
 }

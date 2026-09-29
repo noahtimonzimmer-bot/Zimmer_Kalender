@@ -58,10 +58,18 @@
     </aside>
 
     <section class="calendar">
+      <div class="cal-bar" id="viewSwitch" role="tablist" aria-label="Ansicht">
+        <button type="button" data-view="month">Monat</button>
+        <button type="button" data-view="week">Woche</button>
+        <button type="button" data-view="day">Tag</button>
+      </div>
+      <div class="month-view" id="monthView">
       <div class="weekdays">
         <span data-s="Mo">Montag</span><span data-s="Di">Dienstag</span><span data-s="Mi">Mittwoch</span><span data-s="Do">Donnerstag</span><span data-s="Fr">Freitag</span><span data-s="Sa">Samstag</span><span data-s="So">Sonntag</span>
       </div>
       <div class="grid" id="grid"></div>
+      </div>
+      <div class="time-view" id="timeView" hidden></div>
     </section>
   </main>
 
@@ -74,9 +82,14 @@
       <label>Datum
         <input type="date" name="date" required>
       </label>
-      <label>Uhrzeit <small>(optional)</small>
-        <input type="time" name="time">
-      </label>
+      <div class="form-row">
+        <label>Uhrzeit <small>(optional)</small>
+          <input type="time" name="time">
+        </label>
+        <label>Dauer <small>(Minuten)</small>
+          <input type="number" name="duration" min="5" max="1440" step="5" inputmode="numeric">
+        </label>
+      </div>
 
       <fieldset>
         <legend>Art des Gesprächs</legend>

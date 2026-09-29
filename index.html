@@ -17,41 +17,45 @@
     <button class="icon-btn" id="next" aria-label="Nächster Monat">›</button>
   </header>
 
-  <main>
-    <div class="toolbar">
-      <button class="btn" id="todayBtn">Heute</button>
-      <button class="btn primary" id="addBtn">+ Eintrag</button>
-    </div>
-
-    <div class="weekdays">
-      <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
-    </div>
-    <div class="grid" id="grid"></div>
-
-    <section class="legend">
-      <span><i class="dot vor"></i>Vorgespräch</span>
-      <span><i class="dot see"></i>Seelsorge</span>
-      <span>🤝 persönlich</span>
-      <span>📞 Telefon</span>
-    </section>
-
-    <section class="panel">
-      <h2 id="listTitle">Einträge</h2>
-      <div id="list"></div>
-    </section>
-
-    <section class="panel">
-      <h2 id="statsTitle">Übersicht</h2>
-      <table class="stats" id="stats"></table>
-    </section>
-
-    <section class="panel backup">
-      <h2>Datensicherung</h2>
-      <p class="hint">Die Einträge werden nur auf diesem Gerät im Browser gespeichert. Mach ab und zu eine Sicherung.</p>
+  <main class="layout">
+    <aside class="sidebar">
       <div class="toolbar">
-        <button class="btn" id="exportBtn">Sicherung herunterladen</button>
-        <label class="btn">Sicherung laden<input type="file" id="importFile" accept="application/json" hidden></label>
+        <button class="btn" id="todayBtn">Heute</button>
+        <button class="btn primary" id="addBtn">+ Eintrag</button>
       </div>
+
+      <section class="legend">
+        <span><i class="dot vor"></i>Vorgespräch</span>
+        <span><i class="dot see"></i>Seelsorge</span>
+        <span>🤝 persönlich</span>
+        <span>📞 Telefon</span>
+      </section>
+
+      <section class="panel">
+        <h2 id="listTitle">Einträge</h2>
+        <div id="list"></div>
+      </section>
+
+      <section class="panel">
+        <h2 id="statsTitle">Übersicht</h2>
+        <table class="stats" id="stats"></table>
+      </section>
+
+      <section class="panel backup">
+        <h2>Datensicherung</h2>
+        <p class="hint">Die Einträge werden nur auf diesem Gerät im Browser gespeichert. Mach ab und zu eine Sicherung.</p>
+        <div class="toolbar">
+          <button class="btn" id="exportBtn">Sicherung herunterladen</button>
+          <label class="btn">Sicherung laden<input type="file" id="importFile" accept="application/json" hidden></label>
+        </div>
+      </section>
+    </aside>
+
+    <section class="calendar">
+      <div class="weekdays">
+        <span data-s="Mo">Montag</span><span data-s="Di">Dienstag</span><span data-s="Mi">Mittwoch</span><span data-s="Do">Donnerstag</span><span data-s="Fr">Freitag</span><span data-s="Sa">Samstag</span><span data-s="So">Sonntag</span>
+      </div>
+      <div class="grid" id="grid"></div>
     </section>
   </main>
 

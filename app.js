@@ -81,7 +81,8 @@ function render() {
     cell.append(el('span', 'num', d.getDate()));
     const chips = el('div', 'chips');
     for (const e of byDate[dIso] || []) {
-      const chip = el('span', `chip ${e.kind}`, `${MODE_ICONS[e.mode]} ${e.kind === 'vor' ? 'Vor' : 'Seels.'}`);
+      const label = `${MODE_ICONS[e.mode]} ${e.time ? e.time + ' ' : ''}${e.kind === 'vor' ? 'Vorgespräch' : 'Seelsorge'}${e.person ? ' · ' + e.person : ''}`;
+      const chip = el('span', `chip ${e.kind}`, label);
       chip.title = `${KINDS[e.kind]} – ${MODES[e.mode]}`;
       chips.append(chip);
     }
@@ -134,10 +135,10 @@ function renderStats(monthPrefix, yearPrefix) {
   table.replaceChildren();
   const head = el('thead');
   const hr = el('tr');
-  ['', '🤝 Persönlich', '📞 Telefon', 'Summe (Monat)', 'Jahr'].forEach((t) => hr.append(el('th', null, t)));
+  ['', '🤝', '📞', 'Monat', 'Jahr'].forEach((t) => hr.append(el('th', null, t)));
   head.append(hr);
   const body = el('tbody');
-  const rows = [['vor', KINDS.vor], ['see', KINDS.see], [null, 'Gesamt']];
+  const rows = [['vor', 'Vorgespräch'], ['see', 'Seelsorge'], [null, 'Gesamt']];
   for (const [kind, label] of rows) {
     const tr = el('tr', kind ? null : 'total');
     tr.append(el('td', null, label));
